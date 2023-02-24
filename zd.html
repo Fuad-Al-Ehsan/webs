@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            html, body {
+                height: 100%;
+                overflow: hidden;
+                user-select: none;
+            }
+            
+            #svg{background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px; /**/}
+            
+            .d-none{display: none !important;}
+            
+            #sd{
+                height: 70%;
+                width: 800px;
+                border: 1px solid black;
+                position: relative;
+                overflow: auto;
+                scrollbar-width: none;
+            }
+            #sd::-webkit-scrollbar {display: none;}
+        </style>
+    </head>
+    <body>
+        
+        <div id="sd">
+            <svg id="svg" height="30000" width="30000">
+                <g id="g" fill="none" stroke-linecap="round" stroke-linejoin="round"></g>
+            </svg>
+            <div id="r1" class="d-none" style="background-color: white; height: 15px; width: 15px; border: 1px solid; position: absolute; top: 14840px; left: 14690px;"></div>
+            <div id="r2" class="d-none" style="background-color: white; height: 15px; width: 15px; border: 1px solid; position: absolute; top: 14840px; left: 15270px;"></div>
+            <div id="r3" class="d-none" style="background-color: white; height: 15px; width: 15px; border: 1px solid; position: absolute; top: 15170px; left: 14690px;"></div>
+            <div id="r4" class="d-none" style="background-color: white; height: 15px; width: 15px; border: 1px solid; position: absolute; top: 15170px; left: 15270px;"></div>
+        </div>    <br>
+        <button id="clear">Clear all</button>
+        <button id="pencil">Pencil</button>
+        <button id="move">Move</button>
+        <dialog id="dialog">
+            <svg onclick="dialog.close()" viewBox="123.392 87.556 199.803 199.803" width="25" height="25"><path d="M 221.238 116.816 H 225.35 V 185.401 H 293.935 V 189.513 H 225.35 V 258.098 H 221.238 V 189.513 H 152.653 V 185.401 H 221.238 Z" data-bx-shape="cross 152.653 116.816 141.282 141.282 4.113 4.113 0.5 1@9c3d52d0" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 197.953387, -102.987833)"></path></svg> <br> <button id="eraser">Eraser</button>
+            thickness : 
+            <input type="range" id="range" min="1" max="20" value="2">
+            <div id="div" style="display: flex; width: 165px; margin-top: 5px;"><div style="background-color: red; height: 20px; width: 20px;"></div><div style="background-color: blue; height: 20px; width: 20px;"></div><div style="background-color: green; height: 20px; width: 20px;"></div><div style="background-color: yellow; height: 20px; width: 20px;"></div><div style="background-color: black; height: 20px; width: 20px;"></div> &nbsp;&nbsp;<input id="color" type="color"></div>
+            <input type="file" id="input" accept="image/*, .cur"><button id="exportpng">Export (PNG)</button> <button id="exportsvg">Export (SVG)</button> <br><br> <button id="rectangle">Rectangle</button> <button id="ellipsebtn">Ellipse</button> <button id="graphbtn">Add graph</button>
+        </dialog>
+        <dialog id="imgdialog" style="max-height: 400px;">
+            <button onclick="imgdialog.close()">close</button><br><img id="eximg"> 
+        </dialog>
+        
+        <p id="p"></p>
+        
+        
+        <script>
+            "use strict";
+            
+            var ppts = [], a, b, c, d, path, rect, ellipse, mode = 'pencil', ix, iy, startX, startY, thisimage, undo = [], redo = [], ireleased = false,
+            width = 2, colour = 'black', mouseX, mouseY, timer, ptx, pty, rwidth, rheight, elX, elY, clipboard = '', imageX, imageY, iheight, imageshape = [], imageshapeX = [], imageshapeY = [], imageshapeAX = [], imageshapeAY = [],
+            isMouseDown = false, scrolltop = 0, cy = 0, scrollLeft = 0, cx = 0, imagepath = [], imagepathX = [], imagepathY = [], styleleft, imagepathaX = [], imagepathaY = [], rt = false
+            
+            sd.scrollTop = (sd.scrollHeight - sd.clientHeight) / 2
+            sd.scrollLeft = (sd.scrollWidth - sd.clientWidth) / 2
+            
+            window.addEventListener('pointermove', function(e){
+                clearTimeout(timer)
+                timer = setTimeout(function(){
+                    if(!isMouseDown){
+                        ppts = []
+                        p.innerText = ppts.length
+                    }
+                }, 50)
+                
+                mouseX = e.clientX + sd.scrollLeft - sd.offsetLeft
+                mouseY = e.clientY + sd.scrollTop - sd.offsetTop
+                
+                ppts.push({
+                    x: mouseX,
+                    y: mouseY
+                })
+                p.innerText = ppts.length
+                
+                if(ppts.length > 1){
+                    c = (ppts.slice(-2)[0].x + ppts.slice(-2).pop().x) / 2
+                    d = (ppts.slice(-2)[0].y + ppts.slice(-2).pop().y) / 2
+                    a = ppts.slice(-2)[0].x
+                    b = ppts.slice(-2)[0].y
+                }
+            })
+            
+            svg.addEventListener('mousedown', function(e){
+                isMouseDown = true
+                path = document.createElementNS(this.namespaceURI, 'path')
+                path.setAttribute('stroke-width', width)
+                path.setAttribute('stroke', colour)
+                
+                rect = document.createElementNS(this.namespaceURI, 'rect')
+                rect.setAttribute('stroke-linejoin', 'initial')
+                rect.setAttribute('stroke', colour)
+                rect.setAttribute('stroke-width', width)
+
+                ellipse = document.createElementNS(this.namespaceURI, 'ellipse')
+                ellipse.setAttribute('stroke', colour)
+                ellipse.setAttribute('stroke-width', width)
+                ellipse.setAttribute('fill', 'none')
+
+                ppts = []
+                p.innerText = ppts.length
+                
+                
+                mouseX = e.clientX + sd.scrollLeft - sd.offsetLeft
+                mouseY = e.clientY + sd.scrollTop - sd.offsetTop
+
+                startX = mouseX
+                startY = mouseY
+
+                ppts.push({
+                    x: mouseX,
+                    y: mouseY
+                })
+                p.innerText = ppts.length
+
+                if(mode == 'pencil'){
+                    path.setAttribute('d', 'M' + ' ' + ppts[0].x + ' ' + ppts[0].y + ' Z')
+                    g.appendChild(path)
+                }
+                
+                if(!(e.target instanceof SVGImageElement) && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4' || mode == 'move')) {
+                    move.click()
+                    r1.classList.add('d-none')
+                    r2.classList.add('d-none')
+                    r3.classList.add('d-none')
+                    r4.classList.add('d-none')
+                }
+            })
+            
+            function mouseUp(e){
+                isMouseDown = false
+                
+                mouseX = e.clientX + sd.scrollLeft - sd.offsetLeft
+                mouseY = e.clientY + sd.scrollTop - sd.offsetTop
+                
+                ppts.push({
+                    x: mouseX,
+                    y: mouseY
+                })
+                p.innerText = ppts.length
+                
+                if(ppts.length > 1){
+                    c = (ppts.slice(-2)[0].x + ppts.slice(-2).pop().x) / 2
+                    d = (ppts.slice(-2)[0].y + ppts.slice(-2).pop().y) / 2
+                    a = ppts.slice(-2)[0].x
+                    b = ppts.slice(-2)[0].y
+                }
+                
+                if(path && path.hasAttribute('d') && path.getAttribute('d').includes('Q')){
+                    path.setAttribute('d', path.getAttribute('d') + ' ' + a + ' ' + b + ' ' + c + ' ' + d)
+                }
+                
+                
+                if(path && path.isConnected){
+                    path.setAttribute('d', getComputedStyle(path).d.slice(6, -2))
+
+                    undo.push({
+                        type: 'draw-path',
+                        value: path
+                    })
+                    redo = []
+                }
+                
+                if(mode == 'imagemove' && imageX !== thisimage.getBBox().x && imageY !== thisimage.getBBox().y){
+                    imagepathaX = [] ; imagepathaY = []
+                    imagepath.forEach(function(path){
+                        imagepathaX.push(path.box().tx)
+                        imagepathaY.push(path.box().ty)
+                    })
+                    imageshapeAX = [] ; imageshapeAY = []
+                    imageshape.forEach(function(s){
+                        imageshapeAX.push(s.getBBox().x)
+                        imageshapeAY.push(s.getBBox().y)
+                    })
+                    
+                    undo.push({
+                        type: 'move-image',
+                        value: {
+                            x: imageX,
+                            y: imageY,
+                            after: {
+                                x: thisimage.getBBox().x,
+                                y: thisimage.getBBox().y
+                            }
+                        },
+                        image: thisimage,
+                        imagepath: [imagepath, {
+                            x: imagepathX,
+                            y: imagepathY,
+                            ax: imagepathaX,
+                            ay: imagepathaY
+                        }],
+                        imageshape: [imageshape, {
+                            x: imageshapeX,
+                            y: imageshapeY,
+                            after: {
+                                x: imageshapeAX,
+                                y: imageshapeAY
+                            }
+                        }]
+                    })
+                    redo = []
+                    ireleased = true
+                }
+                
+                path = undefined
+                
+                if(rect && rect.isConnected){
+                    undo.push({
+                        type: 'draw-path',
+                        value: rect
+                    })
+                    redo = []
+                }
+                rect = undefined
+
+                if(ellipse && ellipse.isConnected){
+                    undo.push({
+                        type: 'draw-path',
+                        value: ellipse
+                    })
+                    redo = []
+                }
+                ellipse = undefined
+
+                if((mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4') && thisimage.getBBox().height !== iheight){
+                    undo.push({
+                        type: 'resize-image',
+                        value: thisimage,
+                        size: {
+                            x: imageX,
+                            y: imageY,
+                            height: iheight,
+                            after: {
+                                x: thisimage.getBBox().x,
+                                y: thisimage.getBBox().y,
+                                height: thisimage.getBBox().height
+                            }
+                        }
+                    })
+                    redo = []
+                }
+                
+                imagepath = []
+                g.children.each(function(pth){
+                    if(
+                        thisimage && pth.tagName !== 'image' &&
+                        pth.box().x > thisimage.getBBox().x &&
+                        pth.box().y > thisimage.getBBox().y &&
+                        pth.box().endX < thisimage.getBBox().x + thisimage.getBBox().width &&
+                        pth.box().endY < thisimage.getBBox().y + thisimage.getBBox().height &&
+                        Array.prototype.indexOf.call(g.children, pth) > Array.prototype.indexOf.call(g.children, thisimage)
+                    ) imagepath.push(pth)
+                })
+                
+                g.getElementsByTagName('rect').each(function(r){
+                    if(r.hasAttribute('transform')){
+                        r.setAttribute('x', r.getBBox().x + r.box().tx)
+                        r.setAttribute('y', r.getBBox().y + r.box().ty)
+                        r.removeAttribute('transform')
+                    }
+                })
+                g.getElementsByTagName('ellipse').each(function(e){
+                    if(e.hasAttribute('transform')){
+                        e.setAttribute('cx', e.getBBox().x + (e.getBBox().width / 2) + e.box().tx)
+                        e.setAttribute('cy', e.getBBox().y + (e.getBBox().height / 2) + e.box().ty)
+                        e.removeAttribute('transform')
+                    }
+                })
+                g.getElementsByTagName('path').each(function(path){
+                    if((path.box().tx !== 0 || path.box().ty !== 0) && rt){
+                        path.moveBy(path.box().tx, path.box().ty)
+                        path.removeAttribute('transform')
+                    }
+                })
+
+                ppts = []
+                p.innerText = ppts.length
+                
+                window.removeEventListener('mousemove', mouseMove)
+                window.removeEventListener('mouseup', mouseUp)
+            }
+            
+            SVGGraphicsElement.prototype.box = function(){
+                var mt = getComputedStyle(this).transform,
+                
+                tx = mt !== 'none' ? parseFloat(mt.slice(7, -1).split(', ')[4]) : this.hasAttribute('transform') ? this.transform.animVal[0].matrix.e : 0,
+                ty = mt !== 'none' ? parseFloat(mt.slice(7, -1).split(', ')[5]) : this.hasAttribute('transform') ? this.transform.animVal[0].matrix.f : 0
+                
+                return {
+                    x: this.getBBox().x + tx,
+                    y: this.getBBox().y + ty,
+                    tx: tx,
+                    ty: ty,
+                    endX: this.getBBox().x + tx + this.getBBox().width,
+                    endY: this.getBBox().y + ty + this.getBBox().height
+                }
+            }
+
+            SVGPathElement.prototype.commands = function(){
+                var ca = [], cm = getComputedStyle(this).d.slice(6, -2).split(/\s(?=[A-Za-z])/g)
+                cm.forEach(function(e){
+                    var ar = e.split(' '),
+                    prop = 'abcdefghijklmnopqrstuvwxyz',
+                    o = {
+                        command: e
+                    }
+
+                    ar.forEach(function(n, i){
+                        if(n !== e[0]) o[prop.charAt(i - 1)] = +n
+                    })
+
+                    ca.push(o)
+                })
+    
+                return ca
+            }
+
+            SVGPathElement.prototype.moveBy = function(x, y){
+                var d = '', ca = this.commands()
+                ca.forEach(function(e){
+                    if(e.command.toUpperCase().startsWith('M') || e.command.toUpperCase().startsWith('L') || e.command.toUpperCase().startsWith('T')){
+                        d += e.command.charAt(0) + ' ' + (e.a + x) + ' ' + (e.b + y)
+                        if(e !== ca.slice(-1).pop()) d += ' '
+                    }
+                    else if(e.command.toUpperCase().startsWith('Q') || e.command.toUpperCase().startsWith('S')){
+                        d += e.command.charAt(0) + ' ' + (e.a + x) + ' ' + (e.b + y) + ' ' + (e.c + x) + ' ' + (e.d + y)
+                        if(e !== ca.slice(-1).pop()) d += ' '
+                    }
+                    else if(e.command.toUpperCase().startsWith('C')){
+                        d += e.command.charAt(0) + ' ' + (e.a + x) + ' ' + (e.b + y) + ' ' + (e.c + x) + ' ' + (e.d + y) + ' ' + (e.e + x) + ' ' + (e.f + y)
+                        if(e !== ca.slice(-1).pop()) d += ' '
+                    }
+                    else if(e.command.toUpperCase().startsWith('H')){
+                        d += e.command.charAt(0) + (e.a + x)
+                        if(e !== ca.slice(-1).pop()) d += ' '
+                    }
+                    else if(e.command.toUpperCase().startsWith('V')){
+                        d += e.command.charAt(0) + (e.a + y)
+                        if(e !== ca.slice(-1).pop()) d += ' '
+                    }
+                    else d += e.command
+                })
+    
+                this.setAttribute('d', d)
+                this.setAttribute('d', getComputedStyle(this).d.slice(6, -2))
+                    
+                return(this.getAttribute('d'))
+            }
+            
+            Object.prototype.each = function(f){
+                if(!(this.length === undefined) && this.forEach === undefined) [...this].forEach(f)
+                else return undefined
+            }
+            
+            function mouseMove(e){
+                if(mode == 'pencil'){
+                    if(!e.shiftKey){
+                        path.setAttribute('d', path.getAttribute('d').replace('Z', 'Q') + ' ' + a + ' ' + b + ' ' + c + ' ' + d)
+                    }
+                    else path.setAttribute('d', `M ${startX} ${startY} L ${mouseX} ${mouseY} Z`)
+                }
+                else if(mode == 'rect'){
+                    rwidth = Math.abs(mouseX - startX)
+                    rheight = Math.abs(mouseY - startY)
+
+                    if(!e.shiftKey){
+                        if (mouseX > startX) mouseX = startX
+                        if (mouseY > startY) mouseY = startY
+                    } else {
+                        if(rwidth < rheight) rheight = rwidth
+                        else rwidth = rheight
+                
+                        if (mouseX > startX) mouseX = startX
+                        else mouseX = startX - rwidth
+                        if (mouseY > startY) mouseY = startY
+                        else mouseY = startY - rheight
+                    }
+                    rect.setAttribute('x', mouseX)
+                    rect.setAttribute('y', mouseY)
+                    rect.setAttribute( 'width', rwidth)
+                    rect.setAttribute('height', rheight)
+                    g.appendChild(rect)
+                }
+                else if(mode == 'ellipse'){
+                    elX = Math.abs(mouseX - startX) / 2
+                    elY = Math.abs(mouseY - startY) / 2
+                    if(!e.shiftKey){
+                        if (mouseX > startX) mouseX = startX
+                        if (mouseY > startY) mouseY = startY
+                    } else {
+                        if(elX < elY) elY = elX
+                        else elX = elY
+                
+                        if (mouseX > startX) mouseX = startX
+                        else mouseX = startX - elX * 2
+                        if (mouseY > startY) mouseY = startY
+                        else mouseY = startY - elY * 2
+                    }
+                    ellipse.setAttribute('cx', mouseX + elX)
+                    ellipse.setAttribute('cy', mouseY + elY)
+                    ellipse.setAttribute( 'rx', elX)
+                    ellipse.setAttribute('ry', elY)
+                    g.appendChild(ellipse)
+                }
+                else if(mode == 'move'){
+                    sd.scrollTop = scrolltop + cy - e.clientY
+                    sd.scrollLeft = scrollLeft + cx - e.clientX
+                }
+                else if(mode == 'imagemove'){
+                    thisimage.setAttribute('x', mouseX - ix)
+                    thisimage.setAttribute('y', mouseY - iy)
+                    moveResizers()
+                    for(var i = 0; i < imagepath.length; i++)imagepath[i].setAttribute('transform', `translate(${imagepathX[i] + mouseX - ptx}, ${imagepathY[i] + mouseY - pty})`)
+                }
+                else if(mode == 'resize1'){
+                    thisimage.setAttribute('height', Math.max(24, thisimage.getBBox().height + styletop - mouseY))
+                    thisimage.setAttribute('y', Math.min(maxiy, thisimage.getBBox().y - styletop + mouseY))
+                    thisimage.setAttribute('x', thisimage.getBBox().x - thisimage.getBBox().width + ileft)
+                    moveResizers()
+                    
+                    styletop = mouseY
+                    ileft = thisimage.getBBox().width
+                }
+                else if(mode == 'resize2'){
+                    thisimage.setAttribute('height', Math.max(24, thisimage.getBBox().height + styletop - mouseY))
+                    thisimage.setAttribute('y', Math.min(maxiy, thisimage.getBBox().y - styletop + mouseY))
+                    moveResizers()
+                    styletop = mouseY
+                }
+                else if(mode == 'resize3'){
+                    thisimage.setAttribute('height', Math.max(24, thisimage.getBBox().height - styletop + mouseY))
+                    thisimage.setAttribute('x', thisimage.getBBox().x - thisimage.getBBox().width + ileft)
+                    moveResizers()
+                    
+                    styletop = mouseY
+                    ileft = thisimage.getBBox().width
+                }
+                else if(mode == 'resize4'){
+                    thisimage.setAttribute('height', Math.max(24, thisimage.getBBox().height - styletop + mouseY))
+                    /* if(mouseX > thisimage.box().endX){
+                        thisimage.setAttribute('height', Math.max(24, thisimage.getBBox().height - styletop + mouseY))
+                        thisimage.removeAttribute('width')
+                    } else if(mouseY > thisimage.box().endY) {
+                        thisimage.setAttribute('width', thisimage.getBBox().width - styleleft + mouseX)
+                        thisimage.removeAttribute('height')
+                    } */
+                    moveResizers()
+                    styletop = mouseY
+                    styleleft = mouseX
+                }
+            }
+            
+            
+
+            
+            pencil.addEventListener('click', function(){
+                mode = 'pencil'
+                document.getElementsByTagName('style')[0].innerText = document.getElementsByTagName('style')[0].innerText.replace('background-image: linear-gradient(#0000003a 1px, transparent 1px),linear-gradient(90deg, #0000003a 1px, transparent 1px),linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px);', '/**/')
+                thisimage = undefined
+                r1.classList.add('d-none')
+                r2.classList.add('d-none')
+                r3.classList.add('d-none')
+                r4.classList.add('d-none')
+            })
+            
+            eraser.addEventListener('click', function(){
+                mode = 'eraser'
+                
+                for(var path of g.children) path.addEventListener('mousemove', function(){
+                    if(isMouseDown && mode == 'eraser' && !(this.tagName == 'image')){
+                        undo.push({
+                            type: 'erase-path',
+                            value: this,
+                            index: Array.prototype.indexOf.call(g.children, this)
+                        })
+                        redo = []
+                        this.remove()
+                    }
+                })
+
+                document.getElementsByTagName('style')[0].innerText = document.getElementsByTagName('style')[0].innerText.replace('background-image: linear-gradient(#0000003a 1px, transparent 1px),linear-gradient(90deg, #0000003a 1px, transparent 1px),linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px);', '/**/')
+                dialog.close()
+                thisimage = undefined
+                r1.classList.add('d-none')
+                r2.classList.add('d-none')
+                r3.classList.add('d-none')
+                r4.classList.add('d-none')
+            })
+            
+            move.addEventListener('click', function(){
+                mode = 'move'
+                document.getElementsByTagName('style')[0].innerText = document.getElementsByTagName('style')[0].innerText.replace('/**/', 'background-image: linear-gradient(#0000003a 1px, transparent 1px),linear-gradient(90deg, #0000003a 1px, transparent 1px),linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px);')
+                
+            })
+
+            clear.addEventListener('click', function(){
+                sd.scrollTop = (sd.scrollHeight - sd.clientHeight) / 2
+                sd.scrollLeft = (sd.scrollWidth - sd.clientWidth) / 2
+                    
+                ;[...g.children].forEach(function(path){
+                    if(path.tagName !== 'image') path.remove()
+                })
+                undo = []; redo = []
+            })
+
+            clear.addEventListener('contextmenu', function(e){
+                dialog.showModal()
+                e.preventDefault()
+            })
+            
+            range.addEventListener('input', function(){
+                width = this.value
+                pencil.click()
+            })
+
+            color.addEventListener('input', function(){
+                colour = this.value
+                pencil.click()
+            })
+
+            rectangle.addEventListener('click', function(){
+                pencil.click()
+                mode = 'rect'
+                dialog.close()
+            })
+            
+            ellipsebtn.addEventListener('click', function(){
+                pencil.click()
+                mode = 'ellipse'
+                dialog.close()
+            })
+            
+            graphbtn.addEventListener('click', function(){
+                var image = document.createElementNS(svg.namespaceURI, 'image')
+                image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4) - 30)
+                image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10) - 30)
+                image.setAttribute('height', '400')
+                image.setAttribute('href', 'data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSI2My4zNiAxOC45MDQgMzI4LjQ0NyAyNjIuNzM4IiB3aWR0aD0iNjU2Ljg5NCIgaGVpZ2h0PSI1MjUuNDc2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPg0KICAgIDxwYXRoIGQ9Ik0gNjMuMzYgMTguOTA0IEwgMjI3Ljg3MyAxOC45MDQgTCAyMjcuODczIDE1MC41MTQgTCA2My4zNiAxNTAuNTE0IEwgNjMuMzYgMTguOTA0IFogTSAyMjcuMjk0IDE4LjkwNCBMIDM5MS44MDcgMTguOTA0IEwgMzkxLjgwNyAxNTAuNTE0IEwgMjI3LjI5NCAxNTAuNTE0IEwgMjI3LjI5NCAxOC45MDQgWiBNIDYzLjM2NSAxNDkuOTcgTCAyMjcuODc4IDE0OS45NyBMIDIyNy44NzggMjgxLjU4IEwgNjMuMzY1IDI4MS41OCBMIDYzLjM2NSAxNDkuOTcgWiBNIDIyNy4yNzkgMTUwLjAzMiBMIDM5MS43OTIgMTUwLjAzMiBMIDM5MS43OTIgMjgxLjY0MiBMIDIyNy4yNzkgMjgxLjY0MiBMIDIyNy4yNzkgMTUwLjAzMiBaIiBmaWxsPSJ3aGl0ZSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSAxMy41IEwgNjI0IDEzLjUgTSAxIDI2IEwgNjI0IDI2IE0gMSAzOC41IEwgNjI0IDM4LjUgTSAxIDUxIEwgNjI0IDUxIE0gMSA3NiBMIDYyNCA3NiBNIDEgODguNSBMIDYyNCA4OC41IE0gMSAxMDEgTCA2MjQgMTAxIE0gMSAxMTMuNSBMIDYyNCAxMTMuNSBNIDEgMTM4LjUgTCA2MjQgMTM4LjUgTSAxIDE1MSBMIDYyNCAxNTEgTSAxIDE2My41IEwgNjI0IDE2My41IE0gMSAxNzYgTCA2MjQgMTc2IE0gMSAyMDEgTCA2MjQgMjAxIE0gMSAyMTMuNSBMIDYyNCAyMTMuNSBNIDEgMjI2IEwgNjI0IDIyNiBNIDEgMjM4LjUgTCA2MjQgMjM4LjUgTSAxIDI2My41IEwgNjI0IDI2My41IE0gMSAyNzYgTCA2MjQgMjc2IE0gMSAyODguNSBMIDYyNCAyODguNSBNIDEgMzAxIEwgNjI0IDMwMSBNIDEgMzI2IEwgNjI0IDMyNiBNIDEgMzM4LjUgTCA2MjQgMzM4LjUgTSAxIDM1MS41IEwgNjI0IDM1MSBNIDEgMzYzLjUgTCA2MjQgMzYzLjUgTSAxIDM4OC41IEwgNjI0IDM4OC41IE0gMSA0MDEgTCA2MjQgNDAxIE0gMSA0MTMuNSBMIDYyNCA0MTMuNSBNIDEgNDI2IEwgNjI0IDQyNiBNIDEgNDUxIEwgNjI0IDQ1MSBNIDEgNDYzLjUgTCA2MjQgNDYzLjUgTSAxIDQ3NiBMIDYyNCA0NzYgTSAxIDQ4OC41IEwgNjI0IDQ4OC41IE0gMTMuNSAxIEwgMTMuNSA0OTkgTSAyNiAxIEwgMjYgNDk5IE0gMzguNSAxIEwgMzguNSA0OTkgTSA1MSAxIEwgNTEgNDk5IE0gNzYgMSBMIDc2IDQ5OSBNIDg4LjUgMSBMIDg4LjUgNDk5IE0gMTAxIDEgTCAxMDEgNDk5IE0gMTEzLjUgMSBMIDExMy41IDQ5OSBNIDEzOC41IDEgTCAxMzguNSA0OTkgTSAxNTEgMSBMIDE1MSA0OTkgTSAxNjMuNSAxIEwgMTYzLjUgNDk5IE0gMTc2IDEgTCAxNzYgNDk5IE0gMjAxIDEgTCAyMDEgNDk5IE0gMjEzLjUgMSBMIDIxMy41IDQ5OSBNIDIyNiAxIEwgMjI2IDQ5OSBNIDIzOC41IDEgTCAyMzguNSA0OTkgTSAyNjMuNSAxIEwgMjYzLjUgNDk5IE0gMjc2IDEgTCAyNzYgNDk5IE0gMjg4LjUgMSBMIDI4OC41IDQ5OSBNIDMwMSAxIEwgMzAxIDQ5OSBNIDMyNiAxIEwgMzI2IDQ5OSBNIDMzOC41IDEgTCAzMzguNSA0OTkgTSAzNTEuNSAxIEwgMzUxIDQ5OSBNIDM2My41IDEgTCAzNjMuNSA0OTkgTSAzODguNSAxIEwgMzg4LjUgNDk5IE0gNDAxIDEgTCA0MDEgNDk5IE0gNDEzLjUgMSBMIDQxMy41IDQ5OSBNIDQyNiAxIEwgNDI2IDQ5OSBNIDQ1MSAxIEwgNDUxIDQ5OSBNIDQ2My41IDEgTCA0NjMuNSA0OTkgTSA0NzYgMSBMIDQ3NiA0OTkgTSA0ODguNSAxIEwgNDg4LjUgNDk5IE0gNTEzLjUgMSBMIDUxMy41IDQ5OSBNIDUyNiAxIEwgNTI2IDQ5OSBNIDUzOC41IDEgTCA1MzguNSA0OTkgTSA1NTEgMSBMIDU1MSA0OTkgTSA1NzYgMSBMIDU3NiA0OTkgTSA1ODguNSAxIEwgNTg4LjUgNDk5IE0gNjAxIDEgTCA2MDEgNDk5IE0gNjEzLjUgMSBMIDYxMy41IDQ5OSIgc3Ryb2tlPSIjN2Q3ZDdkIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgNjMuMzU5NDI5LCAxOC45MDMzNzQpIj48L3BhdGg+DQogICAgPHBhdGggZD0iTSAxIDYzLjUgTCA2MjQgNjMuNSBNIDEgMTg4LjUgTCA2MjQgMTg4LjUgTSAxIDMxMy41IEwgNjI0IDMxMy41IE0gMSA0MzguNSBMIDYyNCA0MzguNSBNIDYzLjUgMSBMIDYzLjUgNDk5IE0gMTg4LjUgMSBMIDE4OC41IDQ5OSBNIDMxMy41IDEgTCAzMTMuNSA0OTkgTSA0MzguNSAxIEwgNDM4LjUgNDk5IE0gNTYzLjUgMSBMIDU2My41IDQ5OSIgc3Ryb2tlLXdpZHRoPSIxLjI1IiBzdHJva2U9ImJsYWNrIiB0cmFuc2Zvcm09Im1hdHJpeCgwLjI2MzIyMSwgMCwgMCwgMC4yNjMyMjEsIDYzLjM1OTQyOSwgMTguOTAzMzc0KSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSAxIEwgNjI0IDEgNjI0IDQ5OSAxIDQ5OSBaIE0gMSAxMjYgTCA2MjQgMTI2IE0gMSAyNTEgTCA2MjQgMjUxIE0gMSAzNzYgTCA2MjQgMzc2IE0gMTI2IDEgTCAxMjYgNDk5IE0gMjUxIDEgTCAyNTEgNDk5IE0gMzc2IDEgTCAzNzYgNDk5IE0gNTAxIDEgTCA1MDEgNDk5IiBzdHJva2U9InJlZCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIiB0cmFuc2Zvcm09Im1hdHJpeCgwLjI2MzIyMSwgMCwgMCwgMC4yNjMyMjEsIDYzLjM1OTQyOSwgMTguOTAzMzc0KSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSAxMy41IEwgNjI0IDEzLjUgTSAxIDI2IEwgNjI0IDI2IE0gMSAzOC41IEwgNjI0IDM4LjUgTSAxIDUxIEwgNjI0IDUxIE0gMSA3NiBMIDYyNCA3NiBNIDEgODguNSBMIDYyNCA4OC41IE0gMSAxMDEgTCA2MjQgMTAxIE0gMSAxMTMuNSBMIDYyNCAxMTMuNSBNIDEgMTM4LjUgTCA2MjQgMTM4LjUgTSAxIDE1MSBMIDYyNCAxNTEgTSAxIDE2My41IEwgNjI0IDE2My41IE0gMSAxNzYgTCA2MjQgMTc2IE0gMSAyMDEgTCA2MjQgMjAxIE0gMSAyMTMuNSBMIDYyNCAyMTMuNSBNIDEgMjI2IEwgNjI0IDIyNiBNIDEgMjM4LjUgTCA2MjQgMjM4LjUgTSAxIDI2My41IEwgNjI0IDI2My41IE0gMSAyNzYgTCA2MjQgMjc2IE0gMSAyODguNSBMIDYyNCAyODguNSBNIDEgMzAxIEwgNjI0IDMwMSBNIDEgMzI2IEwgNjI0IDMyNiBNIDEgMzM4LjUgTCA2MjQgMzM4LjUgTSAxIDM1MS41IEwgNjI0IDM1MSBNIDEgMzYzLjUgTCA2MjQgMzYzLjUgTSAxIDM4OC41IEwgNjI0IDM4OC41IE0gMSA0MDEgTCA2MjQgNDAxIE0gMSA0MTMuNSBMIDYyNCA0MTMuNSBNIDEgNDI2IEwgNjI0IDQyNiBNIDEgNDUxIEwgNjI0IDQ1MSBNIDEgNDYzLjUgTCA2MjQgNDYzLjUgTSAxIDQ3NiBMIDYyNCA0NzYgTSAxIDQ4OC41IEwgNjI0IDQ4OC41IE0gMTMuNSAxIEwgMTMuNSA0OTkgTSAyNiAxIEwgMjYgNDk5IE0gMzguNSAxIEwgMzguNSA0OTkgTSA1MSAxIEwgNTEgNDk5IE0gNzYgMSBMIDc2IDQ5OSBNIDg4LjUgMSBMIDg4LjUgNDk5IE0gMTAxIDEgTCAxMDEgNDk5IE0gMTEzLjUgMSBMIDExMy41IDQ5OSBNIDEzOC41IDEgTCAxMzguNSA0OTkgTSAxNTEgMSBMIDE1MSA0OTkgTSAxNjMuNSAxIEwgMTYzLjUgNDk5IE0gMTc2IDEgTCAxNzYgNDk5IE0gMjAxIDEgTCAyMDEgNDk5IE0gMjEzLjUgMSBMIDIxMy41IDQ5OSBNIDIyNiAxIEwgMjI2IDQ5OSBNIDIzOC41IDEgTCAyMzguNSA0OTkgTSAyNjMuNSAxIEwgMjYzLjUgNDk5IE0gMjc2IDEgTCAyNzYgNDk5IE0gMjg4LjUgMSBMIDI4OC41IDQ5OSBNIDMwMSAxIEwgMzAxIDQ5OSBNIDMyNiAxIEwgMzI2IDQ5OSBNIDMzOC41IDEgTCAzMzguNSA0OTkgTSAzNTEuNSAxIEwgMzUxIDQ5OSBNIDM2My41IDEgTCAzNjMuNSA0OTkgTSAzODguNSAxIEwgMzg4LjUgNDk5IE0gNDAxIDEgTCA0MDEgNDk5IE0gNDEzLjUgMSBMIDQxMy41IDQ5OSBNIDQyNiAxIEwgNDI2IDQ5OSBNIDQ1MSAxIEwgNDUxIDQ5OSBNIDQ2My41IDEgTCA0NjMuNSA0OTkgTSA0NzYgMSBMIDQ3NiA0OTkgTSA0ODguNSAxIEwgNDg4LjUgNDk5IE0gNTEzLjUgMSBMIDUxMy41IDQ5OSBNIDUyNiAxIEwgNTI2IDQ5OSBNIDUzOC41IDEgTCA1MzguNSA0OTkgTSA1NTEgMSBMIDU1MSA0OTkgTSA1NzYgMSBMIDU3NiA0OTkgTSA1ODguNSAxIEwgNTg4LjUgNDk5IE0gNjAxIDEgTCA2MDEgNDk5IE0gNjEzLjUgMSBMIDYxMy41IDQ5OSIgc3Ryb2tlPSIjN2Q3ZDdkIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgMjI3LjI5MzgxMSwgMTguOTAzMDE1KSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSA2My41IEwgNjI0IDYzLjUgTSAxIDE4OC41IEwgNjI0IDE4OC41IE0gMSAzMTMuNSBMIDYyNCAzMTMuNSBNIDEgNDM4LjUgTCA2MjQgNDM4LjUgTSA2My41IDEgTCA2My41IDQ5OSBNIDE4OC41IDEgTCAxODguNSA0OTkgTSAzMTMuNSAxIEwgMzEzLjUgNDk5IE0gNDM4LjUgMSBMIDQzOC41IDQ5OSBNIDU2My41IDEgTCA1NjMuNSA0OTkiIHN0cm9rZS13aWR0aD0iMS4yNSIgc3Ryb2tlPSJibGFjayIgdHJhbnNmb3JtPSJtYXRyaXgoMC4yNjMyMjEsIDAsIDAsIDAuMjYzMjIxLCAyMjcuMjkzODExLCAxOC45MDMwMTUpIj48L3BhdGg+DQogICAgPHBhdGggZD0iTSAxIDEgTCA2MjQgMSA2MjQgNDk5IDEgNDk5IFogTSAxIDEyNiBMIDYyNCAxMjYgTSAxIDI1MSBMIDYyNCAyNTEgTSAxIDM3NiBMIDYyNCAzNzYgTSAxMjYgMSBMIDEyNiA0OTkgTSAyNTEgMSBMIDI1MSA0OTkgTSAzNzYgMSBMIDM3NiA0OTkgTSA1MDEgMSBMIDUwMSA0OTkiIHN0cm9rZT0icmVkIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgMjI3LjI5MzgxMSwgMTguOTAzMDE1KSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSAxMy41IEwgNjI0IDEzLjUgTSAxIDI2IEwgNjI0IDI2IE0gMSAzOC41IEwgNjI0IDM4LjUgTSAxIDUxIEwgNjI0IDUxIE0gMSA3NiBMIDYyNCA3NiBNIDEgODguNSBMIDYyNCA4OC41IE0gMSAxMDEgTCA2MjQgMTAxIE0gMSAxMTMuNSBMIDYyNCAxMTMuNSBNIDEgMTM4LjUgTCA2MjQgMTM4LjUgTSAxIDE1MSBMIDYyNCAxNTEgTSAxIDE2My41IEwgNjI0IDE2My41IE0gMSAxNzYgTCA2MjQgMTc2IE0gMSAyMDEgTCA2MjQgMjAxIE0gMSAyMTMuNSBMIDYyNCAyMTMuNSBNIDEgMjI2IEwgNjI0IDIyNiBNIDEgMjM4LjUgTCA2MjQgMjM4LjUgTSAxIDI2My41IEwgNjI0IDI2My41IE0gMSAyNzYgTCA2MjQgMjc2IE0gMSAyODguNSBMIDYyNCAyODguNSBNIDEgMzAxIEwgNjI0IDMwMSBNIDEgMzI2IEwgNjI0IDMyNiBNIDEgMzM4LjUgTCA2MjQgMzM4LjUgTSAxIDM1MS41IEwgNjI0IDM1MSBNIDEgMzYzLjUgTCA2MjQgMzYzLjUgTSAxIDM4OC41IEwgNjI0IDM4OC41IE0gMSA0MDEgTCA2MjQgNDAxIE0gMSA0MTMuNSBMIDYyNCA0MTMuNSBNIDEgNDI2IEwgNjI0IDQyNiBNIDEgNDUxIEwgNjI0IDQ1MSBNIDEgNDYzLjUgTCA2MjQgNDYzLjUgTSAxIDQ3NiBMIDYyNCA0NzYgTSAxIDQ4OC41IEwgNjI0IDQ4OC41IE0gMTMuNSAxIEwgMTMuNSA0OTkgTSAyNiAxIEwgMjYgNDk5IE0gMzguNSAxIEwgMzguNSA0OTkgTSA1MSAxIEwgNTEgNDk5IE0gNzYgMSBMIDc2IDQ5OSBNIDg4LjUgMSBMIDg4LjUgNDk5IE0gMTAxIDEgTCAxMDEgNDk5IE0gMTEzLjUgMSBMIDExMy41IDQ5OSBNIDEzOC41IDEgTCAxMzguNSA0OTkgTSAxNTEgMSBMIDE1MSA0OTkgTSAxNjMuNSAxIEwgMTYzLjUgNDk5IE0gMTc2IDEgTCAxNzYgNDk5IE0gMjAxIDEgTCAyMDEgNDk5IE0gMjEzLjUgMSBMIDIxMy41IDQ5OSBNIDIyNiAxIEwgMjI2IDQ5OSBNIDIzOC41IDEgTCAyMzguNSA0OTkgTSAyNjMuNSAxIEwgMjYzLjUgNDk5IE0gMjc2IDEgTCAyNzYgNDk5IE0gMjg4LjUgMSBMIDI4OC41IDQ5OSBNIDMwMSAxIEwgMzAxIDQ5OSBNIDMyNiAxIEwgMzI2IDQ5OSBNIDMzOC41IDEgTCAzMzguNSA0OTkgTSAzNTEuNSAxIEwgMzUxIDQ5OSBNIDM2My41IDEgTCAzNjMuNSA0OTkgTSAzODguNSAxIEwgMzg4LjUgNDk5IE0gNDAxIDEgTCA0MDEgNDk5IE0gNDEzLjUgMSBMIDQxMy41IDQ5OSBNIDQyNiAxIEwgNDI2IDQ5OSBNIDQ1MSAxIEwgNDUxIDQ5OSBNIDQ2My41IDEgTCA0NjMuNSA0OTkgTSA0NzYgMSBMIDQ3NiA0OTkgTSA0ODguNSAxIEwgNDg4LjUgNDk5IE0gNTEzLjUgMSBMIDUxMy41IDQ5OSBNIDUyNiAxIEwgNTI2IDQ5OSBNIDUzOC41IDEgTCA1MzguNSA0OTkgTSA1NTEgMSBMIDU1MSA0OTkgTSA1NzYgMSBMIDU3NiA0OTkgTSA1ODguNSAxIEwgNTg4LjUgNDk5IE0gNjAxIDEgTCA2MDEgNDk5IE0gNjEzLjUgMSBMIDYxMy41IDQ5OSIgc3Ryb2tlPSIjN2Q3ZDdkIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgNjMuMzY0MjM2LCAxNDkuOTY5NTYxKSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSA2My41IEwgNjI0IDYzLjUgTSAxIDE4OC41IEwgNjI0IDE4OC41IE0gMSAzMTMuNSBMIDYyNCAzMTMuNSBNIDEgNDM4LjUgTCA2MjQgNDM4LjUgTSA2My41IDEgTCA2My41IDQ5OSBNIDE4OC41IDEgTCAxODguNSA0OTkgTSAzMTMuNSAxIEwgMzEzLjUgNDk5IE0gNDM4LjUgMSBMIDQzOC41IDQ5OSBNIDU2My41IDEgTCA1NjMuNSA0OTkiIHN0cm9rZS13aWR0aD0iMS4yNSIgc3Ryb2tlPSJibGFjayIgdHJhbnNmb3JtPSJtYXRyaXgoMC4yNjMyMjEsIDAsIDAsIDAuMjYzMjIxLCA2My4zNjQyMzYsIDE0OS45Njk1NjEpIj48L3BhdGg+DQogICAgPHBhdGggZD0iTSAxIDEgTCA2MjQgMSA2MjQgNDk5IDEgNDk5IFogTSAxIDEyNiBMIDYyNCAxMjYgTSAxIDI1MSBMIDYyNCAyNTEgTSAxIDM3NiBMIDYyNCAzNzYgTSAxMjYgMSBMIDEyNiA0OTkgTSAyNTEgMSBMIDI1MSA0OTkgTSAzNzYgMSBMIDM3NiA0OTkgTSA1MDEgMSBMIDUwMSA0OTkiIHN0cm9rZT0icmVkIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgNjMuMzY0MjM2LCAxNDkuOTY5NTYxKSI+PC9wYXRoPg0KICAgIDxwYXRoIGQ9Ik0gMSAxMy41IEwgNjI0IDEzLjUgTSAxIDI2IEwgNjI0IDI2IE0gMSAzOC41IEwgNjI0IDM4LjUgTSAxIDUxIEwgNjI0IDUxIE0gMSA3NiBMIDYyNCA3NiBNIDEgODguNSBMIDYyNCA4OC41IE0gMSAxMDEgTCA2MjQgMTAxIE0gMSAxMTMuNSBMIDYyNCAxMTMuNSBNIDEgMTM4LjUgTCA2MjQgMTM4LjUgTSAxIDE1MSBMIDYyNCAxNTEgTSAxIDE2My41IEwgNjI0IDE2My41IE0gMSAxNzYgTCA2MjQgMTc2IE0gMSAyMDEgTCA2MjQgMjAxIE0gMSAyMTMuNSBMIDYyNCAyMTMuNSBNIDEgMjI2IEwgNjI0IDIyNiBNIDEgMjM4LjUgTCA2MjQgMjM4LjUgTSAxIDI2My41IEwgNjI0IDI2My41IE0gMSAyNzYgTCA2MjQgMjc2IE0gMSAyODguNSBMIDYyNCAyODguNSBNIDEgMzAxIEwgNjI0IDMwMSBNIDEgMzI2IEwgNjI0IDMyNiBNIDEgMzM4LjUgTCA2MjQgMzM4LjUgTSAxIDM1MS41IEwgNjI0IDM1MSBNIDEgMzYzLjUgTCA2MjQgMzYzLjUgTSAxIDM4OC41IEwgNjI0IDM4OC41IE0gMSA0MDEgTCA2MjQgNDAxIE0gMSA0MTMuNSBMIDYyNCA0MTMuNSBNIDEgNDI2IEwgNjI0IDQyNiBNIDEgNDUxIEwgNjI0IDQ1MSBNIDEgNDYzLjUgTCA2MjQgNDYzLjUgTSAxIDQ3NiBMIDYyNCA0NzYgTSAxIDQ4OC41IEwgNjI0IDQ4OC41IE0gMTMuNSAxIEwgMTMuNSA0OTkgTSAyNiAxIEwgMjYgNDk5IE0gMzguNSAxIEwgMzguNSA0OTkgTSA1MSAxIEwgNTEgNDk5IE0gNzYgMSBMIDc2IDQ5OSBNIDg4LjUgMSBMIDg4LjUgNDk5IE0gMTAxIDEgTCAxMDEgNDk5IE0gMTEzLjUgMSBMIDExMy41IDQ5OSBNIDEzOC41IDEgTCAxMzguNSA0OTkgTSAxNTEgMSBMIDE1MSA0OTkgTSAxNjMuNSAxIEwgMTYzLjUgNDk5IE0gMTc2IDEgTCAxNzYgNDk5IE0gMjAxIDEgTCAyMDEgNDk5IE0gMjEzLjUgMSBMIDIxMy41IDQ5OSBNIDIyNiAxIEwgMjI2IDQ5OSBNIDIzOC41IDEgTCAyMzguNSA0OTkgTSAyNjMuNSAxIEwgMjYzLjUgNDk5IE0gMjc2IDEgTCAyNzYgNDk5IE0gMjg4LjUgMSBMIDI4OC41IDQ5OSBNIDMwMSAxIEwgMzAxIDQ5OSBNIDMyNiAxIEwgMzI2IDQ5OSBNIDMzOC41IDEgTCAzMzguNSA0OTkgTSAzNTEuNSAxIEwgMzUxIDQ5OSBNIDM2My41IDEgTCAzNjMuNSA0OTkgTSAzODguNSAxIEwgMzg4LjUgNDk5IE0gNDAxIDEgTCA0MDEgNDk5IE0gNDEzLjUgMSBMIDQxMy41IDQ5OSBNIDQyNiAxIEwgNDI2IDQ5OSBNIDQ1MSAxIEwgNDUxIDQ5OSBNIDQ2My41IDEgTCA0NjMuNSA0OTkgTSA0NzYgMSBMIDQ3NiA0OTkgTSA0ODguNSAxIEwgNDg4LjUgNDk5IE0gNTEzLjUgMSBMIDUxMy41IDQ5OSBNIDUyNiAxIEwgNTI2IDQ5OSBNIDUzOC41IDEgTCA1MzguNSA0OTkgTSA1NTEgMSBMIDU1MSA0OTkgTSA1NzYgMSBMIDU3NiA0OTkgTSA1ODguNSAxIEwgNTg4LjUgNDk5IE0gNjAxIDEgTCA2MDEgNDk5IE0gNjEzLjUgMSBMIDYxMy41IDQ5OSIgc3Ryb2tlPSIjN2Q3ZDdkIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgMjI3LjI3ODMwOCwgMTUwLjAzMjAxNSkiPjwvcGF0aD4NCiAgICA8cGF0aCBkPSJNIDEgNjMuNSBMIDYyNCA2My41IE0gMSAxODguNSBMIDYyNCAxODguNSBNIDEgMzEzLjUgTCA2MjQgMzEzLjUgTSAxIDQzOC41IEwgNjI0IDQzOC41IE0gNjMuNSAxIEwgNjMuNSA0OTkgTSAxODguNSAxIEwgMTg4LjUgNDk5IE0gMzEzLjUgMSBMIDMxMy41IDQ5OSBNIDQzOC41IDEgTCA0MzguNSA0OTkgTSA1NjMuNSAxIEwgNTYzLjUgNDk5IiBzdHJva2Utd2lkdGg9IjEuMjUiIHN0cm9rZT0iYmxhY2siIHRyYW5zZm9ybT0ibWF0cml4KDAuMjYzMjIxLCAwLCAwLCAwLjI2MzIyMSwgMjI3LjI3ODMwOCwgMTUwLjAzMjAxNSkiPjwvcGF0aD4NCiAgICA8cGF0aCBkPSJNIDEgMSBMIDYyNCAxIDYyNCA0OTkgMSA0OTkgWiBNIDEgMTI2IEwgNjI0IDEyNiBNIDEgMjUxIEwgNjI0IDI1MSBNIDEgMzc2IEwgNjI0IDM3NiBNIDEyNiAxIEwgMTI2IDQ5OSBNIDI1MSAxIEwgMjUxIDQ5OSBNIDM3NiAxIEwgMzc2IDQ5OSBNIDUwMSAxIEwgNTAxIDQ5OSIgc3Ryb2tlPSJyZWQiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgdHJhbnNmb3JtPSJtYXRyaXgoMC4yNjMyMjEsIDAsIDAsIDAuMjYzMjIxLCAyMjcuMjc4MzA4LCAxNTAuMDMyMDE1KSI+PC9wYXRoPg0KPC9zdmc+')
+                g.appendChild(image)
+                move.click()
+                moveImage(image)
+                dialog.close()
+            })
+             
+            sd.addEventListener('mousedown', function(e) {
+                scrolltop = this.scrollTop
+                cy = e.clientY
+                scrollLeft = this.scrollLeft
+                cx = e.clientX
+
+                window.addEventListener('mousemove', mouseMove)
+                window.addEventListener('mouseup', mouseUp)
+            })
+            
+            exportpng.addEventListener('click', function(){
+                dialog.close()
+                eximg.src = ''
+                imgdialog.showModal()
+                var esvg = document.createElementNS(svg.namespaceURI, 'svg')
+                esvg.innerHTML = svg.innerHTML
+                esvg.setAttribute('height', g.getBBox().height + 20)
+                esvg.setAttribute('width', g.getBBox().width + 20)
+                esvg.firstElementChild.setAttribute('transform', `translate(${-(g.getBBox().x - 10)}, ${-(g.getBBox().y - 10)})`)
+                var img = new Image()
+                img.onload = function(){
+                    var canvas = document.createElement('canvas'), ctx = canvas.getContext('2d')
+                    canvas.height = this.height; canvas.width = this.width
+                    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+                    ctx.drawImage(this, 0, 0)
+                    eximg.src = canvas.toDataURL()
+                }
+                img.src = 'data:image/svg+xml;base64,' + btoa(new XMLSerializer().serializeToString(esvg))
+            })
+
+            exportsvg.addEventListener('click', function(){
+                dialog.close()
+                eximg.src = ''
+                imgdialog.showModal()
+                var esvg = document.createElementNS(svg.namespaceURI, 'svg')
+                esvg.innerHTML = svg.innerHTML.replace(` id="g"`, '')
+                esvg.setAttribute('height', g.getBBox().height + 20)
+                esvg.setAttribute('width', g.getBBox().width + 20)
+                esvg.setAttribute('viewBox', `0 0 ${g.getBBox().width + 20} ${g.getBBox().height + 20}`) ; esvg.setAttribute('xmlns', esvg.namespaceURI)
+                esvg.children[0].innerHTML = `<path d="M ${g.getBBox().x - 10} ${g.getBBox().y - 10} H ${g.getBBox().x + g.getBBox().width + 20} V ${g.getBBox().y + g.getBBox().height + 20} H ${g.getBBox().x - 10} Z" fill="white"></path>`
+                esvg.children[0].innerHTML += g.innerHTML
+                esvg.children[0].setAttribute('transform', `translate(${-(g.getBBox().x - 10)}, ${-(g.getBBox().y - 10)})`)
+                
+                esvg.innerHTML = esvg.innerHTML.replace(/\s\s/g, '').replace(' <g', '\n    <g').replace('</g> ', '\n    </g>\n').replaceAll(/<i/g, '\n        <i').replaceAll(/<p/g, '\n        <p').replaceAll(/<r/g, '\n        <r').replaceAll(/<e/g, '\n        <e').replace(' </svg>', '\n</svg>')
+                eximg.src = 'data:image/svg+xml;base64,' + btoa('<?xml version="1.0" encoding="utf-8"?>\n' + esvg.outerHTML)
+            })
+            
+            
+            for (var divs of div.getElementsByTagName('div')) {
+                divs.addEventListener('click', function(){
+                    colour = this.style.backgroundColor
+                    pencil.click()
+                    dialog.close()
+                })
+            }
+            
+            input.addEventListener('input', function(){
+                var file = this.files[0]
+                if(file.type.startsWith('image/') || file.name.endsWith('.cur')){
+                    var image = document.createElementNS(svg.namespaceURI, 'image')
+                    image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                    image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                    image.setAttribute('height', '330')
+                    var fileReader = new FileReader()
+                    fileReader.onload = function(e){image.setAttribute('href', e.target.result)}
+                    fileReader.readAsDataURL(file)
+                    g.appendChild(image)
+                    move.click()
+                    moveImage(image)
+                }
+            })
+
+            input.addEventListener('click', function(){
+                dialog.close()
+            })
+
+            svg.addEventListener('dragover', function(e){
+                e.preventDefault()
+            })
+            
+            svg.addEventListener('drop', function(e){
+                var file = e.dataTransfer.files[0]
+                if(file && (file.type.startsWith('image/') || file.name.endsWith('.cur'))){
+                    var image = document.createElementNS(this.namespaceURI, 'image')
+                    image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                    image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                    image.setAttribute('height', '330')
+                    var fileReader = new FileReader()
+                    fileReader.onload = function(e){image.setAttribute('href', e.target.result)}
+                    fileReader.readAsDataURL(file)
+                    g.appendChild(image)
+                    move.click()
+                    moveImage(image)
+                }
+                else{
+                    var text = e.dataTransfer.getData('text/plain'),
+                    div = new DOMParser().parseFromString(text, 'text/html'),
+                    
+                    svgtext = div.getElementsByTagName('svg')[0] ? div.getElementsByTagName('svg')[0].outerHTML.replaceAll('xlink:', '') : ''
+                    div = new DOMParser().parseFromString(svgtext, 'image/svg+xml')
+                    var image = document.createElementNS(svg.namespaceURI, 'image')
+                    
+                    if(svgtext.startsWith('<svg') && !svgtext.includes('data-svg-type="copied"')){
+                        div.firstElementChild.setAttribute('xmlns', svg.namespaceURI)
+                        image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                        image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                        image.setAttribute('height', '330')
+                        image.setAttribute('href', 'data:image/svg+xml;base64,' + btoa(div.children[0].outerHTML))
+                        g.appendChild(image)
+                        move.click()
+                        moveImage(image)
+                    }
+                    else if(svgtext.startsWith('<svg') && svgtext.includes('data-svg-type="copied"')){
+                        image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                        image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                        image.setAttribute('height', div.getElementsByTagName('image')[0].getAttribute('height'))
+                        image.setAttribute('href', div.getElementsByTagName('image')[0].getAttribute('href'))
+                        g.appendChild(image)
+                        move.click()
+                        moveImage(image)
+                        for(var path of div.children[0].children[0].children){
+                            if(path.tagName !== 'image'){
+                                g.appendChild(path)
+                                path.setAttribute('transform', `translate(${image.getBBox().x + path.box().tx - +div.getElementsByTagName('image')[0].getAttribute('x')}, ${image.getBBox().y + path.box().ty - +div.getElementsByTagName('image')[0].getAttribute('y')})`)
+                            }
+                        }
+                    }
+                }
+                e.preventDefault()
+            })
+            
+            var styletop, ileft, maxiy
+            r1.addEventListener('mousedown', function(e){
+                move.click()
+                mode = 'resize1'
+                styletop = mouseY
+                maxiy = thisimage.getBBox().y + thisimage.getBBox().height - 24
+                ileft = thisimage.getBBox().width
+                imageX = thisimage.getBBox().x
+                imageY = thisimage.getBBox().y
+                iheight = thisimage.getBBox().height
+                isMouseDown = true
+            })
+
+            r2.addEventListener('mousedown', function(e){
+                move.click()
+                mode = 'resize2'
+                styletop = mouseY
+                maxiy = thisimage.getBBox().y + thisimage.getBBox().height - 24
+                imageX = thisimage.getBBox().x
+                imageY = thisimage.getBBox().y
+                iheight = thisimage.getBBox().height
+                isMouseDown = true
+            })
+            
+            r3.addEventListener('mousedown', function(e){
+                move.click()
+                mode = 'resize3'
+                styletop = mouseY
+                maxiy = thisimage.getBBox().y + thisimage.getBBox().height - 24
+                ileft = thisimage.getBBox().width
+                imageX = thisimage.getBBox().x
+                imageY = thisimage.getBBox().y
+                iheight = thisimage.getBBox().height
+                isMouseDown = true
+            })
+            
+            r4.addEventListener('mousedown', function(e){
+                move.click()
+                styleleft = mouseX
+                mode = 'resize4'
+                styletop = mouseY
+                maxiy = thisimage.getBBox().y + thisimage.getBBox().height - 24
+                imageX = thisimage.getBBox().x
+                imageY = thisimage.getBBox().y
+                iheight = thisimage.getBBox().height
+                isMouseDown = true
+            })
+            
+            document.addEventListener('keydown', function(e){
+                if(e.ctrlKey && !e.shiftKey && e.code === 'KeyZ' && undo.length && !isMouseDown){
+                    var undoitem = undo.slice(-1).pop()
+                    if(undoitem.type === 'draw-path' || undoitem.type === 'add-image'){
+                        undoitem.value.remove()
+                        r1.classList.add('d-none')
+                        r2.classList.add('d-none')
+                        r3.classList.add('d-none')
+                        r4.classList.add('d-none')
+                        redo.push(undo.pop())
+                    }
+                    else if(undoitem.type === 'delete-image'){
+                        g.insertBefore(undoitem.value[0], g.children[undoitem.index])
+                        
+                        undoitem.value[1].slice(0).reverse().forEach(function(path){
+                            undoitem.value[0].after(path)
+                        })
+                        redo.push(undo.pop())
+                    }
+                    else if(undoitem.type === 'move-image'){
+                        undoitem.image.setAttribute('x', undoitem.value.x)
+                        undoitem.image.setAttribute('y', undoitem.value.y)
+                        for(var i = 0; i < undoitem.imagepath[0].length; i++){
+                            undoitem.imagepath[0][i].setAttribute('transform', `translate(${undoitem.imagepath[1].x[i]}, ${undoitem.imagepath[1].y[i]})`)
+                        }
+                        for(var i = 0; i < undoitem.imageshape[0].length; i++){
+                            if(undoitem.imageshape[0][i].tagName === 'rect'){
+                                undoitem.imageshape[0][i].setAttribute('x', undoitem.imageshape[1].x[i])
+                                undoitem.imageshape[0][i].setAttribute('y', undoitem.imageshape[1].y[i])
+                            } else {
+                                undoitem.imageshape[0][i].setAttribute('cx', (undoitem.imageshape[0][i].getBBox().width / 2) + undoitem.imageshape[1].x[i])
+                                undoitem.imageshape[0][i].setAttribute('cy', (undoitem.imageshape[0][i].getBBox().height / 2) + undoitem.imageshape[1].y[i])
+                            }
+                        }
+                        
+                        moveResizers()
+                        redo.push(undo.pop())
+                    }
+                    else if(undoitem.type === 'erase-path'){
+                        !!g.children[undoitem.index] ? g.children[undoitem.index].before(undoitem.value) : g.appendChild(undoitem.value)
+                        redo.push(undo.pop())
+                    }
+                    else if(undoitem.type === 'resize-image'){
+                        undoitem.value.setAttribute('x', undoitem.size.x)
+                        undoitem.value.setAttribute('y', undoitem.size.y)
+                        undoitem.value.setAttribute('height', undoitem.size.height)
+                        moveResizers()
+                        redo.push(undo.pop())
+                    }
+                }
+
+                else if(e.ctrlKey && e.shiftKey && e.code === 'KeyZ' && redo.length && !isMouseDown){
+                    var redoitem = redo.slice(-1).pop()
+                    if(redoitem.type === 'draw-path' || redoitem.type === 'add-image'){
+                        g.appendChild(redoitem.value)
+                        undo.push(redo.pop())
+                    }
+                    else if(redoitem.type === 'delete-image'){
+                        redoitem.value[0].remove()
+                        redoitem.value[1].forEach(function(path){path.remove()})
+                        undo.push(redo.pop())
+                    }
+                    else if(redoitem.type === 'move-image'){
+                        redoitem.image.setAttribute('x', redoitem.value.after.x)
+                        redoitem.image.setAttribute('y', redoitem.value.after.y)
+                        for(var i = 0; i < redoitem.imagepath[0].length; i++){
+                            redoitem.imagepath[0][i].setAttribute('transform', `translate(${redoitem.imagepath[1].ax[i]}, ${redoitem.imagepath[1].ay[i]})`)
+                            /*if(redoitem.imageshape[0][i].tagName === 'rect'){
+                                redoitem.imageshape[0][i].setAttribute('x', redoitem.imageshape[1].after.x[i])
+                                redoitem.imageshape[0][i].setAttribute('y', redoitem.imageshape[1].after.y[i])
+                            } else {
+                                redoitem.imageshape[0][i].setAttribute('cx', (redoitem.imageshape[0][i].getBBox().width / 2) + redoitem.imageshape[1].after.x[i])
+                                redoitem.imageshape[0][i].setAttribute('cy', (redoitem.imageshape[0][i].getBBox().height / 2) + redoitem.imageshape[1].after.y[i])
+                            }*/
+                        }
+                        
+                        moveResizers()
+                        undo.push(redo.pop())
+                    }
+                    else if(redoitem.type === 'erase-path'){
+                        redoitem.value.remove()
+                        undo.push(redo.pop())
+                    }
+                    else if(redoitem.type === 'resize-image'){
+                        redoitem.value.setAttribute('x', redoitem.size.after.x)
+                        redoitem.value.setAttribute('y', redoitem.size.after.y)
+                        redoitem.value.setAttribute('height', redoitem.size.after.height)
+                        moveResizers()
+                        undo.push(redo.pop())
+                    }
+                }
+                
+                else if((e.code === 'Delete' || e.code === 'Backspace') && !(thisimage == undefined) && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    r1.classList.add('d-none')
+                    r2.classList.add('d-none')
+                    r3.classList.add('d-none')
+                    r4.classList.add('d-none')
+
+                    undo.push({
+                        type: 'delete-image',
+                        value: [thisimage, imagepath],
+                        index: Array.prototype.indexOf.call(g.children, thisimage)
+                    })
+                    redo = []
+                    
+                    thisimage.remove()
+                    imagepath.forEach(function(path){path.remove()})
+                }
+                else if(e.code === 'ArrowUp' && thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    e.preventDefault()
+                    if(ireleased){
+                        imageX = thisimage.getBBox().x
+                        imageY = thisimage.getBBox().y
+                        ireleased = false
+                    }
+                    clearTimeout(timer)
+                    timer = setTimeout(function(){
+                        imagepathaX = [] ; imagepathaY = []
+                        imagepath.forEach(function(path){
+                            imagepathaX.push(path.box().tx)
+                            imagepathaY.push(path.box().ty)
+                        })
+                        
+                        undo.push({
+                            type: 'move-image',
+                            value: {
+                                x: imageX - thisimage.getBBox().x,
+                                y: imageY - thisimage.getBBox().y
+                            },
+                            image: thisimage,
+                            imagepath: [imagepath, {
+                                x: imagepathX,
+                                y: imagepathY,
+                                ax: imagepathaX,
+                                ay: imagepathaY
+                            }]
+                        })
+                        redo = []
+
+                        imageX = thisimage.getBBox().x
+                        imageY = thisimage.getBBox().y
+                    }, 50)
+                    
+                    thisimage.setAttribute('y', thisimage.getBBox().y - (!e.shiftKey ? 3 : 10))
+                    imagepath.forEach(function(path){ path.setAttribute('transform', `translate(${path.box().tx}, ${path.box().ty - (!e.shiftKey ? 3 : 10)})`)})
+                    moveResizers()
+                }
+                else if(e.code === 'ArrowDown' && thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    e.preventDefault()
+                    thisimage.setAttribute('y', thisimage.getBBox().y + (!e.shiftKey ? 3 : 10))
+                    imagepath.forEach(function(path){ path.setAttribute('transform', `translate(${path.box().tx}, ${path.box().ty + (!e.shiftKey ? 3 : 10)})`)})
+                    moveResizers()
+                }
+                else if(e.code === 'ArrowLeft' && thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    e.preventDefault()
+                    thisimage.setAttribute('x', thisimage.getBBox().x - (!e.shiftKey ? 3 : 10))
+                    imagepath.forEach(function(path){ path.setAttribute('transform', `translate(${path.box().tx - (!e.shiftKey ? 3 : 10)}, ${path.box().ty})`)})
+                    moveResizers()
+                }
+                else if(e.code === 'ArrowRight' && thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    e.preventDefault()
+                    thisimage.setAttribute('x', thisimage.getBBox().x + (!e.shiftKey ? 3 : 10))
+                    imagepath.forEach(function(path){ path.setAttribute('transform', `translate(${path.box().tx + (!e.shiftKey ? 3 : 10)}, ${path.box().ty})`)})
+                    moveResizers()
+                }
+            })
+            
+            
+            function removeTransform(){
+                g.getElementsByTagName('rect').each(function(r){
+                    if(r.hasAttribute('transform')){
+                        r.setAttribute('x', r.getBBox().x + r.box().tx)
+                        r.setAttribute('y', r.getBBox().y + r.box().ty)
+                        r.removeAttribute('transform')
+                    }
+                })
+                g.getElementsByTagName('ellipse').each(function(e){
+                    if(e.hasAttribute('transform')){
+                        e.setAttribute('cx', e.getBBox().x + (e.getBBox().width / 2) + e.box().tx)
+                        e.setAttribute('cy', e.getBBox().y + (e.getBBox().height / 2) + e.box().ty)
+                        e.removeAttribute('transform')
+                    }
+                })
+                g.getElementsByTagName('path').each(function(path){
+                    if((path.box().tx !== 0 || path.box().ty !== 0) && rt){
+                        path.moveBy(path.box().tx, path.box().ty)
+                        path.removeAttribute('transform')
+                    }
+                })
+            }
+            function moveResizers(){
+                r1.style.left = thisimage.getBBox().x - 7.5 + 'px'
+                r1.style.top = thisimage.getBBox().y - 7.5 + 'px'
+                r2.style.left = thisimage.getBBox().x + thisimage.getBBox().width - 7.5 + 'px'
+                r2.style.top = thisimage.getBBox().y - 7.5 + 'px'
+                r3.style.left = thisimage.getBBox().x - 7.5 + 'px'
+                r3.style.top = thisimage.getBBox().y + thisimage.getBBox().height - 7.5 + 'px'
+                r4.style.left = thisimage.getBBox().x + thisimage.getBBox().width - 7.5 + 'px'
+                r4.style.top = thisimage.getBBox().y + thisimage.getBBox().height - 7.5 + 'px'
+            }
+
+            function moveImage(image){
+                image.addEventListener('mousedown', function(e){
+                    thisimage = this
+                    if(mode == 'move' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4'){
+                        mode = 'imagemove'
+                    }
+                    if(mode == 'imagemove' || mode == 'move' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4'){
+                        r1.classList.remove('d-none')
+                        r2.classList.remove('d-none')
+                        r3.classList.remove('d-none')
+                        r4.classList.remove('d-none')
+                        r1.style.left = this.getBBox().x - 7.5 + 'px'
+                        r1.style.top = this.getBBox().y - 7.5 + 'px'
+                        r2.style.left = this.getBBox().x + this.getBBox().width - 7.5 + 'px'
+                        r2.style.top = this.getBBox().y - 7.5 + 'px'
+                        r3.style.left = this.getBBox().x - 7.5 + 'px'
+                        r3.style.top = this.getBBox().y + this.getBBox().height - 7.5 + 'px'
+                        r4.style.left = this.getBBox().x + this.getBBox().width - 7.5 + 'px'
+                        r4.style.top = this.getBBox().y + this.getBBox().height - 7.5 + 'px'
+                    }
+                    ix = mouseX - this.getBBox().x
+                    iy = mouseY - this.getBBox().y
+                    
+                    imageX = this.getBBox().x
+                    imageY = this.getBBox().y
+                    iheight = this.getBBox().height
+
+                    ptx = mouseX
+                    pty = mouseY
+                    imagepath = []
+                    imagepathX = []; imagepathY = []
+
+                    imageshape = []
+                    imageshapeX = [] ; imageshapeY = []
+                    for(var i = 0, path; path = g.children[i]; i++){
+                        if (
+                            path.tagName !== 'image' &&
+                            path.box().x > this.getBBox().x &&
+                            path.box().y > this.getBBox().y &&
+                            path.box().endX < this.getBBox().x + this.getBBox().width &&
+                            path.box().endY < this.getBBox().y + this.getBBox().height &&
+                            Array.prototype.indexOf.call(g.children, path) > Array.prototype.indexOf.call(g.children, this)
+                        ) {
+                            imagepath.push(path)
+                            imagepathX.push(path.box().tx)
+                            imagepathY.push(path.box().ty)
+
+                            if(path.tagName === 'rect' || path.tagName === 'ellipse'){
+                                imageshape.push(path)
+                                imageshapeX.push(path.getBBox().x)
+                                imageshapeY.push(path.getBBox().y)
+                            }
+                        }
+                    }
+                })
+                image.addEventListener('dragstart', function(e){
+                    e.preventDefault()
+                })
+                undo.push({
+                    type: 'add-image',
+                    value: image
+                })
+                redo = []
+            }
+            
+            document.addEventListener('copy', function(e){
+                e.preventDefault()
+                if(thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    var svgel = document.createElementNS(svg.namespaceURI, 'svg'),
+                    svgg = document.createElementNS(svg.namespaceURI, 'g')
+                    svgel.setAttribute('height', thisimage.getBBox().height) ; svgel.setAttribute('width', thisimage.getBBox().width) ; svgel.setAttribute('viewBox', `0 0 ${thisimage.getBBox().width} ${thisimage.getBBox().height}`) ; svgel.setAttribute('data-svg-type', 'copied') ; svgel.setAttribute('xmlns', svgel.namespaceURI)
+                    svgg.setAttribute('stroke-linecap', 'round') ; svgg.setAttribute('stroke-linejoin', 'round') ; svgg.setAttribute('fill', 'none')
+                    svgg.innerHTML = thisimage.outerHTML
+                    imagepath.forEach(function(path){
+                        svgg.innerHTML += path.outerHTML
+                    })
+                    svgel.appendChild(svgg)
+                    g.appendChild(svgel)
+                    svgg.setAttribute('transform', `translate(-${svgg.getBBox().x}, -${svgg.getBBox().y})`)
+                    svgel.remove()
+                    svgel.innerHTML = svgel.innerHTML.replace('<g', '\n    <g').replace('</g>', '\n    </g>\n').replaceAll(/<i/g, '\n        <i').replaceAll(/<p/g, '\n        <p').replaceAll(/<r/g, '\n        <r').replaceAll(/<e/g, '\n        <e')
+                    clipboard = svgel.outerHTML
+                    e.clipboardData.setData('text/plain', svgel.outerHTML)
+                }
+            })
+            
+            document.addEventListener('cut', function(e){
+                e.preventDefault()
+                if(thisimage && (mode == 'imagemove' || mode == 'resize1' || mode == 'resize2' || mode == 'resize3' || mode == 'resize4')){
+                    var svgel = document.createElementNS(svg.namespaceURI, 'svg'),
+                    svgg = document.createElementNS(svg.namespaceURI, 'g')
+                    svgel.setAttribute('height', thisimage.getBBox().height) ; svgel.setAttribute('width', thisimage.getBBox().width) ; svgel.setAttribute('viewBox', `0 0 ${thisimage.getBBox().width} ${thisimage.getBBox().height}`) ; svgel.setAttribute('data-svg-type', 'copied') ; svgel.setAttribute('xmlns', svgel.namespaceURI)
+                    svgg.setAttribute('stroke-linecap', 'round') ; svgg.setAttribute('stroke-linejoin', 'round') ; svgg.setAttribute('fill', 'none')
+                    svgg.innerHTML = thisimage.outerHTML
+                    imagepath.forEach(function(path){
+                        svgg.innerHTML += path.outerHTML
+                    })
+                    svgel.appendChild(svgg)
+                    g.appendChild(svgel)
+                    svgg.setAttribute('transform', `translate(-${svgg.getBBox().x}, -${svgg.getBBox().y})`)
+                    svgel.remove()
+                    svgel.innerHTML = svgel.innerHTML.replace('<g', '\n    <g').replace('</g>', '\n    </g>\n').replaceAll(/<i/g, '\n        <i').replaceAll(/<p/g, '\n        <p').replaceAll(/<r/g, '\n        <r').replaceAll(/<e/g, '\n        <e')
+                    clipboard = svgel.outerHTML
+                    e.clipboardData.setData('text/plain', svgel.outerHTML)
+                    
+                    thisimage.remove()
+                    imagepath.forEach(function(path){
+                        path.remove()
+                    })
+                    r1.classList.add('d-none')
+                    r2.classList.add('d-none')
+                    r3.classList.add('d-none')
+                    r4.classList.add('d-none')
+
+                    undo.push({
+                        type: 'delete-image',
+                        value: [thisimage, imagepath],
+                        index: Array.prototype.indexOf.call(g.children, thisimage)
+                    })
+                }
+            })
+            
+            
+            document.addEventListener('paste', function(e){
+                if(e.clipboardData.files.length) {
+                    var file = e.clipboardData.files[0]
+                    if(file.type.startsWith('image/') || file.name.endsWith('.cur')){
+                        var image = document.createElementNS(svg.namespaceURI, 'image')
+                        image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                        image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                        image.setAttribute('height', '330')
+                        var fileReader = new FileReader()
+                        fileReader.onload = function(e){image.setAttribute('href', e.target.result)}
+                        fileReader.readAsDataURL(file)
+                        g.appendChild(image)
+                        move.click()
+                        moveImage(image)
+                    }
+                } else {
+                    var pasted
+                    try{
+                        pasted = e.clipboardData.getData('text/plain')
+                    } catch(err){
+                        pasted = clipboard ; console.error(err)
+                    }
+                    var div = new DOMParser().parseFromString(pasted, 'text/html')
+                    
+                    var svgtext = div.getElementsByTagName('svg')[0] ? div.getElementsByTagName('svg')[0].outerHTML.replaceAll('xlink:', '') : ''
+                    div = new DOMParser().parseFromString(svgtext, 'image/svg+xml')
+                    var image = document.createElementNS(svg.namespaceURI, 'image')
+                    
+                    if(svgtext.startsWith('<svg') && svgtext.indexOf('data-svg-type="copied"') == -1){
+                        div.children[0].setAttribute('xmlns', svg.namespaceURI)
+                        image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                        image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                        image.setAttribute('height', '330')
+                        image.setAttribute('href', 'data:image/svg+xml;base64,' + btoa(div.children[0].outerHTML))
+                        g.appendChild(image)
+                        move.click()
+                        moveImage(image)
+                    }
+                    else if(svgtext.startsWith('<svg') && svgtext.indexOf('data-svg-type="copied"') > -1){
+                        image.setAttribute('x', sd.scrollLeft + (sd.clientWidth / 4))
+                        image.setAttribute('y', sd.scrollTop + (sd.clientHeight / 10))
+                        image.setAttribute('height', div.getElementsByTagName('image')[0].getAttribute('height'))
+                        image.setAttribute('href', div.getElementsByTagName('image')[0].getAttribute('href'))
+                        g.appendChild(image)
+                        move.click()
+                        moveImage(image)
+                        ; [...div.children[0].children[0].children].forEach(function(path){
+                            if(path.tagName !== 'image'){
+                                g.appendChild(path)
+                                path.setAttribute('transform', `translate(${image.getBBox().x + path.box().tx - +div.getElementsByTagName('image')[0].getAttribute('x')}, ${image.getBBox().y + path.box().ty - +div.getElementsByTagName('image')[0].getAttribute('y')})`)
+                            }
+                        })
+                    }
+                }
+            })
+            
+            function getD(cx, cy, rx, ry) {
+                var kappa = 0.5522847498,
+                ox = rx * kappa, // x offset for the control point
+                oy = ry * kappa, // y offset for the control point 
+                d = `M ${cx - rx} ${cy}`
+                d+= ` C ${cx - rx} ${cy - oy} ${cx - ox} ${cy - ry} ${cx} ${cy - ry}`
+                d+= ` C ${cx + ox} ${cy - ry} ${cx + rx} ${cy - oy} ${cx + rx} ${cy}`
+                d+= ` C ${cx + rx} ${cy + oy} ${cx + ox} ${cy + ry} ${cx} ${cy + ry}`
+                d+= ` C ${cx - ox} ${cy + ry} ${cx - rx} ${cy + oy} ${cx - rx} ${cy}`
+                d+= ` Z`
+                return `<svg><path d="${d}"></path></svg>`
+            }
+
+            function l(n){
+                return [
+                    'addEventListener', // 0x0
+                    'createElementNS',  // 0x1d9
+                    'createElement',    // 0x3b2
+                    'setAttribute',     // 0x58b
+                    'setAttribute',     // 0x764
+                    'pointermove',      // 0x93d
+                    'contextmenu',      // 0xb16
+                    'dragstart',        // 0xcef
+                    'mousedown',        // 0xec8
+                    'mousemove',        // 0x10a1
+                    'dragover',         // 0x127a
+                    'mouseup',          // 0x1453
+                    'keydown',          // 0x162c
+                    'getBBox',          // 0x1805
+                    'paste',            // 0x19de
+                    'keyup',            // 0x1bb7
+                    'click',            // 0x1d90
+                    'input',            // 0x1f69
+                    'copy',             // 0x2142
+                    'push',             // 0x231b
+                    'drop',             // 0x24f4
+                    'cut',              // 0x26cd
+                    'box'               // 0x28a6 -- 22
+                ][n / 473]
+            }
+            
+            document['scripts'][0]['remove']()
+            
+            
+            
+            /* var s = 'M 10.555 10.555 C 10.625 22.33 11.55 88.99 66.22 44.22 Z'
+            s.split(/\s(?=[A-Za-z])/g)
+
+            var matched = t.value.match(/\.[A-Za-z]+/g),
+            splited = t.value.split(/\.[A-Za-z]+/g),
+            r = ''
+            for(var i = 0; i < splited.length - 1; i++){
+                r += splited[i] + `['${matched[i].replace('.', '')}']`
+            }
+            pre.innerText = (r + splited.slice(-2).pop()).replaceAll(`['cur']`, '.cur')
+            
+            ----------------------------
+              \
+               \
+                 _~^~^~_
+             \) /  o o  \ (/
+               '_   -   _'
+               / '-----' \
+               
+            */
+            
+        </script>
+    </body>
+</html>
